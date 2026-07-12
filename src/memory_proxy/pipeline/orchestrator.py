@@ -209,6 +209,8 @@ class Orchestrator:
         )
         _log_file("audit", {"user": user_id, "promoted": promoted, "archived": archived})
         return {"status": "ok", "reviewed": len(turns), "promoted": promoted, "archived": archived}
+
+    async def reflect(self, user_id: str) -> dict:
         """Time-based loop (D-023): score importance of recent facts."""
         if not self._memory:
             return {"status": "no-memory"}
