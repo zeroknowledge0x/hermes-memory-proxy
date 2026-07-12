@@ -54,7 +54,7 @@ docker compose up -d db
 cp .env.example .env          # edit .env — see below
 python -m memory_proxy.storage.migrations   # or apply migrations/ manually
 
-uvicorn memory_proxy.api.main:build_default_app --factory --host127.0.0.1 --port 8899
+uvicorn memory_proxy.api.main:build_default_app --factory --host 127.0.0.1 --port 8899
 ```
 
 ### 2. Point Hermes at the proxy

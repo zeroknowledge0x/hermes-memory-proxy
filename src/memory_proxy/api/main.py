@@ -128,7 +128,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
 def build_default_app() -> FastAPI:
     """Wire the app from settings. Async resources (DB pool, writer worker)
     are initialised in the lifespan handler, not at import/build time."""
-    from config.settings import load_settings
+    from memory_proxy.config.settings import load_settings
     from memory_proxy.context.budgeter import TokenBudgeter
     from memory_proxy.identity.loader import IdentityLoader
     from memory_proxy.knowledge.embedding import EmbeddingService

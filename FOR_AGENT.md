@@ -33,7 +33,7 @@ cp .env.example .env
 
 ### 4. Run the proxy
 ```bash
-uvicorn memory_proxy.api.main:build_default_app --factory --host127.0.0.1 --port 8899
+uvicorn memory_proxy.api.main:build_default_app --factory --host 127.0.0.1 --port 8899
 # verify: curl http://127.0.0.1:8899/health  -> {"status":"ok"}
 ```
 
