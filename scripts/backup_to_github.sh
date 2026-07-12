@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# backup_to_github.sh — dump memory_proxy DB lalu force-push ke repo backup terpisah.
-# Branch `latest` HANYA simpan 1 file (latest.dump) — gak numpuk history.
+# backup_to_github.sh — dump memory_proxy DB (plain SQL) lalu force-push ke repo backup terpisah.
+# Branch `latest` HANYA simpan 1 file (latest.sql) — gak numpuk history.
 # Cron: 0 4 * * * /root/memory-proxy/scripts/backup_to_github.sh >> /root/memory-proxy/backup/gh.log 2>&1
 set -euo pipefail
 
-DB_URL="${DATABASE_URL:-postgresql://proxy:***@localhost:5432/memory_proxy}"
+DB_URL="${DATABASE_URL:-postgresql://proxy:proxy@localhost:5432/memory_proxy}"
 REPO_URL="${BACKUP_REPO:-https://github.com/zeroknowledge0x/memory-proxy-backup.git}"
 WORK="${BACKUP_WORK:-/root/memory-proxy/backup/gh_repo}"
-DUMP="/root/memory-proxy/backup/latest.dump"
+SQL="/root/memory-proxy/backup/latest.sql"
 
-echo "[$(date -u +%FT%TZ)] dumping -> $DUMP"
-pg_dump -Fc "$DB_URL" -f "$DUMP"
+echo "[$(date -u +%FT%TZ)] dumping -> $SQL"
+pg_dump "$DB_URL" -f "$SQL"
 
 rm -rf "$WORK"
 if git clone --quiet --branch latest "$REPO_URL" "$WORK" 2>/dev/null; then
@@ -20,9 +20,9 @@ else
   git -C "$WORK" checkout --orphan latest
 fi
 
-cp "$DUMP" "$WORK/latest.dump"
-git -C "$WORK" add latest.dump
-if git -C "$WORK" -c user.name="memory-proxy" -c user.email="mp@localhost" \
+cp "$SQL" "$WORK/latest.sql"
+git -C "$WORK" add latest.sql
+if git -C "$WORK" -c user.name="zeroknowledge0x" -c user.email="184744018+zeroknowledge0x@users.noreply.github.com" \
      commit -q -m "backup $(date -u +%FT%TZ)"; then
   echo "[$(date -u +%FT%TZ)] committed"
 else
