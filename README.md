@@ -40,6 +40,10 @@ assemble → budget → inject → forward (stream) → async write memory.
 
 ---
 
+## Concepts & philosophy
+
+Why does this exist, and when should you use it? See **[CONCEPTS.md](CONCEPTS.md)**.
+
 ## Install (drop-in)
 
 ### 1. Engine (this repo)
