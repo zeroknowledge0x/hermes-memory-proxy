@@ -113,6 +113,19 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         except Exception as exc:
             return {"status": "error", "error": str(exc)}
 
+    @app.post("/v1/audit")
+    async def audit(user: str = "", since_hours: int = 24):
+        """Daily audit loop (Opsi C): sift conversations -> promote useful,
+        archive the rest. Called by a Hermes cron job with a FLAT prompt."""
+        orch: Orchestrator = app.state.orchestrator
+        if not orch or not orch._memory:
+            return {"status": "no-memory"}
+        uid = orch._resolve_user_id({"user": user}) if user else str(orch._default_user_id)
+        try:
+            return await orch.audit(uid, since_hours=since_hours)
+        except Exception as exc:
+            return {"status": "error", "error": str(exc)}
+
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):
         payload = await request.json()
@@ -128,12 +141,13 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
 def build_default_app() -> FastAPI:
     """Wire the app from settings. Async resources (DB pool, writer worker)
     are initialised in the lifespan handler, not at import/build time."""
-    from memory_proxy.config.settings import load_settings
+    from config.settings import load_settings
     from memory_proxy.context.budgeter import TokenBudgeter
     from memory_proxy.identity.loader import IdentityLoader
     from memory_proxy.knowledge.embedding import EmbeddingService
     from memory_proxy.knowledge.repository import KnowledgeRepository
     from memory_proxy.memory.repository import MemoryRepository
+    from memory_proxy.memory.conversation_repo import ConversationRepository
     from memory_proxy.memory.writer import MemoryWriter
     from memory_proxy.providers.factory import build_provider, build_credentials
     from memory_proxy.api.security import install_security
@@ -177,6 +191,7 @@ def build_default_app() -> FastAPI:
                 model=settings.extraction_model,
             )
         mem_repo = MemoryRepository(pool, embedder)
+        conv_repo = ConversationRepository(pool, embedder)
         writer = MemoryWriter(mem_repo, extractor, enabled=settings.extraction_enabled)
         writer.start()
 
@@ -185,6 +200,7 @@ def build_default_app() -> FastAPI:
             identity=identity,
             memory_repo=mem_repo,
             knowledge_repo=KnowledgeRepository(pool, embedder),
+            conversation_repo=conv_repo,
             writer=writer,
             budgeter=TokenBudgeter(settings.context_window, settings.reserved_pct),
             default_user_id=settings.default_user_id,

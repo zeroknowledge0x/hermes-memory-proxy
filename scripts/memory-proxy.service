@@ -1,0 +1,19 @@
+[Unit]
+Description=Hermes Memory Proxy (OpenAI-compatible, model-agnostic second brain)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/memory-proxy
+EnvironmentFile=/root/memory-proxy/.env
+ExecStart=/root/memory-proxy/.venv/bin/python -m uvicorn memory_proxy.api.main:build_default_app --factory --host 127.0.0.1 --port 8899
+Restart=always
+RestartSec=3
+TimeoutStartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

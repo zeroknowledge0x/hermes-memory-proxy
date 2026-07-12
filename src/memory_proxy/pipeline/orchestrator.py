@@ -47,6 +47,7 @@ class Orchestrator:
         identity=None,
         memory_repo=None,
         knowledge_repo=None,
+        conversation_repo=None,
         writer=None,
         budgeter: TokenBudgeter | None = None,
         default_user_id: str = "00000000-0000-0000-0000-000000000001",
@@ -56,6 +57,7 @@ class Orchestrator:
         self._identity = identity
         self._memory = memory_repo
         self._knowledge = knowledge_repo
+        self._conversations = conversation_repo
         self._writer = writer
         self._budgeter = budgeter
         self._assembler = ContextAssembler()
@@ -100,13 +102,18 @@ class Orchestrator:
             await self._knowledge.search(query, limit=self._top_k)
             if self._knowledge and query else []
         )
+        # 3b. retrieve recent conversations (Opsi C: recall past chat)
+        conv_hits = (
+            await self._conversations.search_recent(user_id, query, limit=self._top_k)
+            if self._conversations and query else []
+        )
 
         # 5. assemble
         ctx = self._assembler.assemble(
             soul=soul, user=user,
             memory=[h["content"] for h in memory_hits],
             knowledge=[h["content"] for h in knowledge_hits],
-            history=[],
+            history=[f"{c['role']}: {c['content']}" for c in conv_hits],
         )
 
         # 6. budget
@@ -129,6 +136,11 @@ class Orchestrator:
                     .get("content", "")
                 )
             self._writer.enqueue(user_id, query, assistant_msg)
+            # full-write conversation log (Opsi C)
+            if self._conversations:
+                await self._conversations.add_turn(user_id, "user", query)
+                if assistant_msg:
+                    await self._conversations.add_turn(user_id, "assistant", assistant_msg)
 
         return result
 
@@ -160,7 +172,43 @@ class Orchestrator:
             return {"status": "ok", "summary": summary, "facts_seen": len(facts)}
         return {"status": "llm-failed"}
 
-    async def reflect(self, user_id: str) -> dict:
+    async def audit(self, user_id: str, since_hours: int = 24) -> dict:
+        """Daily audit loop (Opsi C): read recent conversations, ask the LLM
+        which turns are USEFUL / likely-to-be-reused, promote those to memory
+        (source='audit'), and archive the rest (stop retrieval, keep for audit).
+        """
+        if not self._conversations or not self._memory:
+            return {"status": "no-conversations"}
+        turns = await self._conversations.recent_turns(user_id, since_hours=since_hours)
+        if not turns:
+            return {"status": "nothing-to-audit"}
+        text = "\n".join(f"- {t}" for t in turns)
+        # LLM picks the useful, reusable ones (facts / preferences / context)
+        useful = await self._summarise(
+            user_id,
+            "From this conversation transcript, extract ONLY lines that are "
+            "USEFUL and LIKELY TO BE REUSED later: stable facts, user preferences, "
+            "decisions, context. Skip chit-chat, questions, transient status. "
+            "Return one bullet per item, original wording. If none, return 'NONE'.",
+            text,
+        )
+        promoted = 0
+        if useful and useful.strip().upper() != "NONE":
+            for line in useful.splitlines():
+                line = line.lstrip("- ").strip()
+                if not line:
+                    continue
+                if self._memory and self._writer:
+                    await self._memory.add_fact(user_id, line, source="audit")
+                    promoted += 1
+        # archive old conversations so they leave the hot retrieval path
+        archived = await self._conversations.archive(user_id, older_than_hours=since_hours)
+        await self._memory.log_event(
+            user_id, "audit",
+            {"reviewed": len(turns), "promoted": promoted, "archived": archived},
+        )
+        _log_file("audit", {"user": user_id, "promoted": promoted, "archived": archived})
+        return {"status": "ok", "reviewed": len(turns), "promoted": promoted, "archived": archived}
         """Time-based loop (D-023): score importance of recent facts."""
         if not self._memory:
             return {"status": "no-memory"}

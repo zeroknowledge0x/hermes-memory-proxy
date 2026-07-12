@@ -107,6 +107,19 @@ Then restart the Hermes gateway manually, and pick **Memory Proxy** in `/model`.
 
 ---
 
+## Run as a service (auto-start + auto-restart)
+
+A `systemd` unit is provided (`scripts/memory-proxy.service`). Install:
+
+```bash
+sudo cp scripts/memory-proxy.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now memory-proxy
+# logs: journalctl -u memory-proxy
+```
+
+It loads `.env`, starts after Postgres, and **restarts automatically on crash or reboot**.
+
 ## Self-improvement loops (optional)
 
 The proxy exposes two endpoints the agent can call on a schedule:
