@@ -1,0 +1,8 @@
+name: memory-proxy
+version: 1.0.0
+description: "Inject Memory Proxy context (facts + identity) into the Hermes system prompt so the agent remembers across sessions. Pairs with the memory-proxy engine running on :8899."
+author: zka
+kind: standalone
+hooks:
+  pre_llm_call:
+    - inject_memory

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Env / secrets
+.env
+*.local
+
+# Backups (kept off-repo, see scripts/backup_to_github.sh)
+backup/
+logs/
+
+# Hermes private data
+m1.md
+m2.md
+
+# OS
+.DS_Store
