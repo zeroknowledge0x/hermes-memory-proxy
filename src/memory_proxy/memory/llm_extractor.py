@@ -103,6 +103,14 @@ class LLMFactExtractor:
                     json=payload,
                     headers=self._creds.auth_header(),
                 )
+                # Stale OAuth token -> refresh once and retry (D-020)
+                if resp.status_code in (401, 403, 404) and self._creds.mode == "oauth":
+                    await self._creds.refresh_now()
+                    resp = await client.post(
+                        f"{self._base_url}/chat/completions",
+                        json=payload,
+                        headers=self._creds.auth_header(),
+                    )
                 resp.raise_for_status()
                 content = resp.json()["choices"][0]["message"]["content"]
             return content.strip() or None
