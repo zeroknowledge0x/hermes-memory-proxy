@@ -123,11 +123,39 @@ hermes cron create "every 3h" "POST http://127.0.0.1:8899/v1/reflect?user=<your-
 
 ---
 
+## Install via your agent (zero-touch)
+
+Hand this to any agent (including Hermes itself) and it will install the whole
+thing unattended — full steps in **[FOR_AGENT.md](FOR_AGENT.md)**:
+
+> Clone `https://github.com/zeroknowledge0x/hermes-memory-proxy` and follow
+> `FOR_AGENT.md` exactly: install the engine, start Postgres+pgvector, configure
+> `.env`, run the proxy on `127.0.0.1:8899`, wire it into Hermes via
+> `custom_providers`, copy the plugin + skill, then verify memory works.
+> Report status when done.
+
+Copy-paste prompt you can send your agent:
+
+```
+Install Hermes Memory Proxy from https://github.com/zeroknowledge0x/hermes-memory-proxy.
+Read FOR_AGENT.md in that repo and execute every step in order.
+Use a flat, direct report style. When finished, confirm the proxy answers
+"what is my name?" from memory after you tell it your name once.
+```
+
+---
+
 ## Backup
 
-`scripts/backup.sh` dumps the DB locally (14-day retention).
-`scripts/backup_to_github.sh` force-pushes the dump to a **separate private repo**
-(branch `latest`) so memory survives a total VPS loss. Restore with `pg_restore`.
+Backups are **plain SQL** (`.sql`) — human-readable, greppable, and restorable
+with `psql` (no `pg_restore` needed).
+
+- `scripts/backup.sh` dumps the DB locally (14-day retention).
+- `scripts/backup_to_github.sh` force-pushes the dump to a **separate private repo**
+  (branch `latest`) so memory survives a total VPS loss. Restore with:
+  ```bash
+  psql "$DATABASE_URL" -f latest.sql
+  ```
 
 ---
 
