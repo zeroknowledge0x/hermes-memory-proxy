@@ -55,13 +55,21 @@ jobs:
             -H 'content-type: application/json' \
             -d '{"content":"CIbot loves containers and recalls without any LLM"}')
           echo "write: $W"
-          echo "$W" | grep -qi '"status":"ok"\|"status": "ok"' || (echo "WRITE FAILED"; docker compose logs proxy; exit 1)
-          # 2) Give the embedder/writer a moment
-          sleep 3
-          # 3) Recall it via GET /v1/memory?q=...
-          M=$(curl -fsS 'http://127.0.0.1:8899/v1/memory?limit=5&q=CIbot')
-          echo "memory: $M"
-          echo "$M" | grep -qi "CIbot" || (echo "MEMORY NOT RECALLED"; docker compose logs proxy; exit 1)
+          echo "$W" | grep -qi '"status": *"ok"' || (echo "WRITE FAILED"; docker compose logs proxy; exit 1)
+          # 2) Poll recall (embedding model fetch + index can be slow on first run)
+          FOUND=""
+          for i in $(seq 1 15); do
+            M=$(curl -fsS 'http://127.0.0.1:8899/v1/memory?limit=5&q=CIbot')
+            if echo "$M" | grep -qi "CIbot"; then
+              FOUND=1
+              echo "memory: $M"
+              break
+            fi
+            sleep 2
+          done
+          if [ -z "$FOUND" ]; then
+            echo "MEMORY NOT RECALLED after retry"; docker compose logs proxy; exit 1
+          fi
           echo "SMOKE OK: fact stored + recalled via full pipeline"
 
       - name: Tear down
