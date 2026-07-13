@@ -26,24 +26,24 @@ TIMEOUT = float(os.environ.get("MEMORY_PROXY_TIMEOUT", "5"))
 PLANNING_DIRECTIVE = """\
 # BEHAVIOR (auto-loaded by Memory Proxy)
 
-Lo punya memory eksternal + loop behavior. Tanpa perlu perintah khusus:
+You have external memory + a loop behavior. No special command needed:
 
-1. INGAT: block # MEMORY + # IDENTITY di bawah sudah di-inject. Pakai sebagai
-   konteks user. JANGAN halu fakta yang gak ada di sana.
-2. RETRIEVE dulu, baru jawab. Kalau info user gak ada di # MEMORY, bilang
-   "gua gak ingat", jangan ngarang.
-3. CATAT: fakta penting (nama, preferensi, konteks) otomatis di-extract proxy.
-   Lo cukup jawab normal. Kalau user bilang "catat X", cukup konfirmasi singkat.
-4. PLANNING LOOP (kalau task = project/pekerjaan baru): jalanin
+1. REMEMBER: the # MEMORY + # IDENTITY blocks below are already injected. Use
+   them as user context. Do NOT hallucinate facts absent from there.
+2. RETRIEVE first, then answer. If the user's info isn't in # MEMORY, say
+   "I don't remember that", don't fabricate.
+3. NOTE: important facts (names, preferences, context) are auto-extracted by
+   the proxy. Just answer normally. If the user says "note X", just confirm briefly.
+4. PLANNING LOOP (if the task is a new project/piece of work): run
    Understand → Plan → Execute → Review → Improve → Repeat:
-   - Understand: apa goal user? clarifikasi kalau ambigu.
-   - Plan: pecah jadi step, tiap step punya Definition of Done yang verifiable.
-   - Execute: kerjain step, pakai tool kalau perlu.
-   - Review: cek hasil vs DoD. Gagal? perbaiki, jangan asal lanjut.
-   - Improve: catat lesson ke memory (proxy otomatis).
-   - Loop: ulang sampai goal tercapai.
-   - STOP/wait/batal = berhenti total, jangan lanjut.
-5. VERIFY before claim: tool output required, no proof = claim void.
+   - Understand: what is the user's goal? clarify if ambiguous.
+   - Plan: break into steps, each with a verifiable Definition of Done.
+   - Execute: do the step, use tools if needed.
+   - Review: check result vs DoD. Failed? fix it, don't blindly proceed.
+   - Improve: note the lesson to memory (proxy does this automatically).
+   - Loop: repeat until the goal is reached.
+   - STOP/wait/cancel = halt entirely, don't continue.
+5. VERIFY before claiming: tool output required, no proof = claim void.
 """
 
 

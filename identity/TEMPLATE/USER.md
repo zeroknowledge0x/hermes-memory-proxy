@@ -1,12 +1,15 @@
-# USER.md — TEMPLATE (isi sendiri)
+# USER.md — TEMPLATE (fill in yourself)
 
-> Long-term user preferences. Gak menyimpan state per-session.
+> Long-term user preferences. Does not store per-session state.
 
 ## Preferred Workflow
-<gimana lo suka kerja>
+
+<how you like to work>
 
 ## Preferred Language
-<Bahasa Indonesia casual / English / dll>
+
+<casual Bahasa Indonesia / English / other>
 
 ## Working Context
-<project aktif, batasan komunikasi>
+
+<active projects, communication constraints>

@@ -1,32 +1,33 @@
 # Memory Proxy Skill
 
-Kamu terhubung ke **Memory Proxy** — engine ingatan eksternal di `:8899`. Ingatan
-disimpan di sana (Postgres + vector), BUKAN di model. Ganti model = ingatan tetap.
+You are connected to the **Memory Proxy** — an external memory engine running
+at `:8899`. Memories live there (Postgres + vector), NOT in the model. Swap the
+model and your memory stays.
 
-## Aturan wajib
+## Hard rules
 
-1. **Pakai memory yang sudah di-inject.** Plugin `memory-proxy` otomatis menyisipkan
-   block `# MEMORY` + `# IDENTITY` ke system prompt tiap chat. Pakai itu sebagai
-   konteks user. JANGAN halu fakta yang gak ada di sana.
+1. **Use the memory already injected.** The `memory-proxy` plugin automatically
+   injects a `# MEMORY` + `# IDENTITY` block into the system prompt every chat.
+   Treat it as user context. Do NOT hallucinate facts that aren't present there.
 
-2. **Gak perlu simpan manual.** Setiap turn, fakta penting (nama, preferensi, konteks)
-   otomatis di-extract oleh proxy dan masuk DB. Lo cukup jawab normal.
+2. **No manual saving needed.** Every turn, important facts (names, preferences,
+   context) are auto-extracted by the proxy and stored in the DB. Just answer normally.
 
-3. **Kalau user bilang "catat X" / "ingat X"** — proxy sudah menangani ekstraksi.
-   Cukup konfirmasi singkat ("oke, gua catat"). Jangan simpan di tempat lain.
+3. **If the user says "note X" / "remember X"** — the proxy already handles
+   extraction. Just confirm briefly ("got it, noted"). Don't store it elsewhere.
 
-4. **Gak ingat = bilang gak ingat.** Kalau info user gak ada di `# MEMORY`, jawab
-   "gua gak ingat" / "belum gua catat", jangan ngarang.
+4. **Don't remember = say you don't remember.** If the user's info isn't in
+   `# MEMORY`, reply "I don't remember that / haven't noted it yet" — don't fabricate.
 
-5. **Identitas.** Hormati `# IDENTITY` (SOUL/USER). Itu persona + batasan lo.
+5. **Identity.** Respect `# IDENTITY` (SOUL/USER). That is your persona + boundaries.
 
-## Bukan apa
+## What this is NOT
 
-- Ini BUKAN planning-loop. Rencana/eksekusi tetap di agen (Hermes).
-- Ini cuma behavior ingatan: retrieve (sudah di-inject) + biarkan proxy catat.
+- This is NOT a planning-loop. Planning/execution stays in the agent (Hermes).
+- This is only memory behavior: retrieve (already injected) + let the proxy note things.
 
 ## Troubleshoot
 
-- Memory kosong padahal harusnya ada? Cek proxy jalan di `:8899`
+- Memory empty but should have data? Check the proxy is up at `:8899`
   (`curl http://127.0.0.1:8899/health`).
-- Ganti provider/model di picker `/model` → Memory Proxy → ingatan tetap sama.
+- Swap provider/model in the `/model` picker → Memory Proxy → memory stays the same.
