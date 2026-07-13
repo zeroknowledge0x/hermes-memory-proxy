@@ -6,6 +6,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Postgres + pgvector](https://img.shields.io/badge/store-Postgres%20%2B%20pgvector-336791.svg)](https://github.com/pgvector/pgvector)
 [![OpenAI-compatible](https://img.shields.io/badge/API-OpenAI--compatible-412991.svg)](https://platform.openai.com/docs/api-reference/chat)
+[![Docker build](https://github.com/zeroknowledge0x/hermes-memory-proxy/actions/workflows/docker-smoke.yml/badge.svg)](https://github.com/zeroknowledge0x/hermes-memory-proxy/actions/workflows/docker-smoke.yml)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 Your agent sits behind an OpenAI-compatible endpoint. This proxy transparently
