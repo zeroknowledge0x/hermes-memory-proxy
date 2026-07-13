@@ -20,3 +20,8 @@ m2.md
 
 # OS
 .DS_Store
+
+# Runtime logs
+src/logs/
+logs/
+*.log

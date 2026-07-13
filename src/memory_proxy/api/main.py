@@ -57,21 +57,41 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         }
 
     @app.get("/v1/memory")
-    async def get_memory(user: str = "", limit: int = 10):
+    async def get_memory(user: str = "", limit: int = 10, q: str = ""):
         """External memory retrieval for the Hermes plugin (Future Plan #2).
 
         Returns ranked facts + identity so the plugin can inject them into
         the system prompt. `user` is the opaque Hermes id (e.g. 'telegram:...');
         the orchestrator hashes it to a UUID.
+
+        Optional `q` = semantic query (user's latest message). When empty,
+        falls back to a profile-style probe so important durable facts surface.
         """
         orch: Orchestrator = app.state.orchestrator
         if not orch or not orch._memory:
             return {"memory": [], "identity": {}}
         uid = orch._resolve_user_id({"user": user}) if user else str(orch._default_user_id)
         try:
-            hits = await orch._memory.search(
-                uid, "important user facts", limit=max(1, min(limit, 50))
+            limit = max(1, min(limit, 50))
+            query = (q or "").strip() or (
+                "user name preferences identity rules language environment"
             )
+            # Primary: query-aware semantic retrieval
+            hits = await orch._memory.search(uid, query, limit=limit)
+            # Diversity: if query was specific, also pull a couple of high-importance
+            # profile facts so identity never drops off the injection block.
+            if q and limit >= 4:
+                profile_hits = await orch._memory.search(
+                    uid,
+                    "nama preferensi aturan bahasa identitas user",
+                    limit=min(3, limit // 2),
+                )
+                seen = {h["content"] for h in hits}
+                for ph in profile_hits:
+                    if ph["content"] not in seen:
+                        hits.append(ph)
+                        seen.add(ph["content"])
+                hits = hits[:limit]
             identity = {}
             if orch._identity:
                 identity = {
@@ -81,9 +101,41 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             return {
                 "memory": [h["content"] for h in hits],
                 "identity": identity,
+                "query_used": query,
+                "count": len(hits),
             }
         except Exception:
             return {"memory": [], "identity": {}}
+
+    @app.post("/v1/admin/dedupe")
+    async def admin_dedupe(user: str = ""):
+        """One-shot / on-demand cleanup: expire exact-text duplicates and
+        keep only the newest consolidated profile per user."""
+        orch: Orchestrator = app.state.orchestrator
+        if not orch or not orch._memory:
+            return {"status": "no-memory"}
+        try:
+            if user:
+                uid = orch._resolve_user_id({"user": user})
+                n_exact = await orch._memory.expire_exact_duplicates(uid)
+                n_cons = await orch._memory.expire_old_consolidated(uid, keep=1)
+            else:
+                n_exact = await orch._memory.expire_exact_duplicates(None)
+                # expire old consolidated for every user that has any
+                n_cons = 0
+                # lightweight: only known telegram default user + default uuid
+                for uid in (
+                    str(orch._default_user_id),
+                    orch._resolve_user_id({"user": "telegram:5398668166"}),
+                ):
+                    n_cons += await orch._memory.expire_old_consolidated(uid, keep=1)
+            return {
+                "status": "ok",
+                "expired_exact_dupes": n_exact,
+                "expired_old_consolidated": n_cons,
+            }
+        except Exception as exc:
+            return {"status": "error", "error": str(exc)}
 
     @app.post("/v1/consolidate")
     async def consolidate(user: str = "", keep: int = 20):

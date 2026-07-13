@@ -126,17 +126,21 @@ class Orchestrator:
         result = await self._provider.forward(final_payload, stream=stream)
 
         # 9. async memory write (fire-and-forget, non-blocking)
-        #    Must await the result first so we have the assistant reply.
         if self._writer and query:
+            if stream and hasattr(result, "__aiter__"):
+                # Buffer SSE so we can extract facts AFTER the stream ends.
+                # Without this, streaming turns never pass assistant_msg to the
+                # extractor and conversation logs miss the assistant reply.
+                return self._stream_then_write(result, user_id, query)  # type: ignore[arg-type]
             assistant_msg = ""
-            if not stream and isinstance(result, dict):
+            if isinstance(result, dict):
                 assistant_msg = (
                     result.get("choices", [{}])[0]
                     .get("message", {})
                     .get("content", "")
+                    or ""
                 )
             self._writer.enqueue(user_id, query, assistant_msg)
-            # full-write conversation log (Opsi C)
             if self._conversations:
                 await self._conversations.add_turn(user_id, "user", query)
                 if assistant_msg:
@@ -144,10 +148,55 @@ class Orchestrator:
 
         return result
 
+    async def _stream_then_write(
+        self, stream_result: AsyncIterator[bytes], user_id: str, query: str
+    ) -> AsyncIterator[bytes]:
+        """Passthrough SSE bytes while collecting assistant text for the writer."""
+        pieces: list[str] = []
+        async for chunk in stream_result:
+            # Decode & parse OpenAI-style SSE deltas (best-effort).
+            try:
+                text = chunk.decode("utf-8", errors="ignore")
+            except Exception:
+                text = ""
+            for line in text.splitlines():
+                line = line.strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if not data or data == "[DONE]":
+                    continue
+                try:
+                    obj = json.loads(data)
+                    delta = (
+                        obj.get("choices", [{}])[0]
+                        .get("delta", {})
+                        .get("content")
+                    )
+                    if delta:
+                        pieces.append(delta)
+                except Exception:
+                    pass
+            yield chunk
+
+        assistant_msg = "".join(pieces)
+        if self._writer and query:
+            self._writer.enqueue(user_id, query, assistant_msg)
+        if self._conversations and query:
+            await self._conversations.add_turn(user_id, "user", query)
+            if assistant_msg:
+                await self._conversations.add_turn(user_id, "assistant", assistant_msg)
+
     async def consolidate(self, user_id: str, keep: int = 20) -> dict:
         """Time-based loop (D-023): summarise recent facts into a Long memory.
 
         Called by the Hermes cron job (flat prompt, never brain_loop()).
+
+        Anti-spam:
+        - If new summary is nearly identical to the latest consolidated
+          (cosine distance < 0.08), SKIP insert.
+        - When a new distinct summary is added, expire older consolidated
+          rows (keep only the newest 1).
         """
         if not self._memory:
             return {"status": "no-memory"}
@@ -162,15 +211,52 @@ class Orchestrator:
             "1 short paragraph, no preamble.",
             lines,
         )
-        if summary:
-            await self._memory.add_consolidated(user_id, summary, "consolidated")
-            await self._memory.log_event(
-                user_id, "consolidate",
-                {"input_count": len(facts), "summary": summary},
-            )
-            _log_file("consolidate", {"user": user_id, "summary": summary})
-            return {"status": "ok", "summary": summary, "facts_seen": len(facts)}
-        return {"status": "llm-failed"}
+        if not summary:
+            return {"status": "llm-failed"}
+
+        # Skip if nearly-identical to newest active consolidated.
+        near = await self._memory.search(user_id, summary, limit=3)
+        for h in near:
+            if (h.get("source") == "consolidated" or "consolidated" in str(h.get("source", ""))) and h["distance"] < 0.08:
+                await self._memory.log_event(
+                    user_id, "consolidate",
+                    {"status": "skipped-duplicate", "distance": h["distance"]},
+                )
+                _log_file("consolidate", {"user": user_id, "status": "skipped-duplicate"})
+                return {
+                    "status": "skipped-duplicate",
+                    "distance": h["distance"],
+                    "facts_seen": len(facts),
+                }
+        # Also skip if any hit is extremely close regardless of source label
+        # (covers older rows tagged differently).
+        if near and near[0]["distance"] < 0.05 and len(near[0]["content"]) > 80:
+            # Only skip when the nearest neighbour is itself a long profile-like fact
+            if near[0]["content"][:40].lower() in summary[:80].lower() or near[0]["distance"] < 0.03:
+                await self._memory.log_event(
+                    user_id, "consolidate",
+                    {"status": "skipped-near", "distance": near[0]["distance"]},
+                )
+                _log_file("consolidate", {"user": user_id, "status": "skipped-near"})
+                return {
+                    "status": "skipped-duplicate",
+                    "distance": near[0]["distance"],
+                    "facts_seen": len(facts),
+                }
+
+        await self._memory.add_consolidated(user_id, summary, "consolidated")
+        expired = await self._memory.expire_old_consolidated(user_id, keep=1)
+        await self._memory.log_event(
+            user_id, "consolidate",
+            {"input_count": len(facts), "summary": summary, "expired_old": expired},
+        )
+        _log_file("consolidate", {"user": user_id, "summary": summary, "expired_old": expired})
+        return {
+            "status": "ok",
+            "summary": summary,
+            "facts_seen": len(facts),
+            "expired_old": expired,
+        }
 
     async def audit(self, user_id: str, since_hours: int = 24) -> dict:
         """Daily audit loop (Opsi C): read recent conversations, ask the LLM
@@ -198,9 +284,10 @@ class Orchestrator:
                 line = line.lstrip("- ").strip()
                 if not line:
                     continue
-                if self._memory and self._writer:
-                    await self._memory.add_fact(user_id, line, source="audit")
-                    promoted += 1
+                if self._memory:
+                    new_id = await self._memory.add_fact(user_id, line, source="audit")
+                    if new_id:
+                        promoted += 1
         # archive old conversations so they leave the hot retrieval path
         archived = await self._conversations.archive(user_id, older_than_hours=since_hours)
         await self._memory.log_event(

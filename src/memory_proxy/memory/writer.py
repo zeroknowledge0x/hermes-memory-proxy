@@ -87,13 +87,22 @@ class MemoryWriter:
         facts = await self._extractor.extract(text, assistant_msg)
         written = 0
         for fact in facts:
+            fact = (fact or "").strip()
+            if not fact:
+                continue
             if await self._is_duplicate(user_id, fact):
                 continue
-            await self._repo.add_fact(user_id, fact, source="extractor")
-            written += 1
+            new_id = await self._repo.add_fact(user_id, fact, source="extractor")
+            if new_id:  # None => exact-text duplicate already in DB
+                written += 1
         return written
 
     async def _is_duplicate(self, user_id: str, fact: str) -> bool:
+        """True if an active near-duplicate exists (cosine distance gate).
+
+        Threshold is cosine DISTANCE (0 = identical). 0.10 ≈ very similar;
+        also catch exact string via repository.add_fact.
+        """
         hits = await self._repo.search(user_id, fact, limit=1)
         if not hits:
             return False
