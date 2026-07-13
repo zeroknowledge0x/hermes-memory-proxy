@@ -56,6 +56,28 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
             "root": model,
         }
 
+    @app.post("/v1/memory")
+    async def post_memory(payload: dict, user: str = ""):
+        """Write a fact directly (programmatic memory, no LLM forward needed).
+
+        Body: {"content": "fact text", "source": "optional"}.
+        Returns {"status": "ok", "id": "..."} or {"status": "duplicate"}.
+        """
+        orch: Orchestrator = app.state.orchestrator
+        if not orch or not orch._memory:
+            return {"status": "no-memory"}
+        uid = orch._resolve_user_id({"user": user}) if user else str(orch._default_user_id)
+        content = (payload.get("content") or "").strip()
+        if not content:
+            return {"status": "error", "error": "content required"}
+        try:
+            fact_id = await orch._memory.add_fact(uid, content, payload.get("source"))
+            if fact_id is None:
+                return {"status": "duplicate"}
+            return {"status": "ok", "id": fact_id}
+        except Exception as exc:
+            return {"status": "error", "error": str(exc)}
+
     @app.get("/v1/memory")
     async def get_memory(user: str = "", limit: int = 10, q: str = ""):
         """External memory retrieval for the Hermes plugin (Future Plan #2).
