@@ -23,6 +23,8 @@ class MemoryRepository:
         content = (content or "").strip()
         if not content:
             return None
+        # Ensure the user row exists before inserting (FK constraint).
+        await self.ensure_user(user_id)
         # Exact-text gate (cheap) before embedding/insert.
         async with self._pool.acquire() as c:
             existing = await c.fetchval(

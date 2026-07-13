@@ -67,6 +67,7 @@ def create_app(orchestrator: Orchestrator | None = None) -> FastAPI:
         if not orch or not orch._memory:
             return {"status": "no-memory"}
         uid = orch._resolve_user_id({"user": user}) if user else str(orch._default_user_id)
+        await orch._memory.ensure_user(uid)
         content = (payload.get("content") or "").strip()
         if not content:
             return {"status": "error", "error": "content required"}
