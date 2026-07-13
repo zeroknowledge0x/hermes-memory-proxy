@@ -93,8 +93,8 @@ Legend: ⬜ belum · 🔄 lagi dikerjain · ✅ selesai (test lulus) · ⚠️ s
 - Solusi: pindah init ke lifespan handler (`build_default_app`). RESOLVED.
 
 ### ERR-004 · Deploy · user field opaque crash UUID query
-- Gejala: `invalid input for query argument $1: 'telegram:5398668166' (invalid UUID)`.
-- Penyebab: `_resolve_user_id` pakai raw `payload["user"]` langsung ke query UUID. Hermes kirim `user: "telegram:5398668166"`.
+- Gejala: `invalid input for query argument $1: 'telegram:<your-user-id>' (invalid UUID)`.
+- Penyebab: `_resolve_user_id` pakai raw `payload["user"]` langsung ke query UUID. Hermes kirim `user: "telegram:<your-user-id>"`.
 - Solusi: hash `user` → UUID deterministik (sha256[:16]). Fallback default UUID. → test_user_id.py (3 tests). RESOLVED.
 
 ### ERR-005 · Phase 2 · API key vs OAuth
@@ -130,7 +130,7 @@ Legend: ⬜ belum · 🔄 lagi dikerjain · ✅ selesai (test lulus) · ⚠️ s
   1. `LLMFactExtractor` pakai `response_format: {"type":"json_object"}` → Nous **tolak (400)** → extract return []. Dihapus, pakai robust JSON parser.
   2. `Orchestrator` gak buat user row → `add_fact` gagal FK (silent, writer catch Exception). Ditambah `ensure_user()`.
   3. (bonus) `enqueue` dipanggil sebelum `result` di-await → assistant msg kosong; sekarang await dulu.
-- Solusi: extractor tanpa response_format + orchestrator `ensure_user()` + await result. Terbukti: fakta `zeroknowledge0x (zk)/unsiq` masuk DB + retrieve jalan (tes "VPS Docker?" → jawab bener). RESOLVED.
+- Solusi: extractor tanpa response_format + orchestrator `ensure_user()` + await result. Terbukti: fakta `the maintainer/<your-university>` masuk DB + retrieve jalan (tes "VPS Docker?" → jawab bener). RESOLVED.
 
 ---
 
@@ -142,7 +142,7 @@ Legend: ⬜ belum · 🔄 lagi dikerjain · ✅ selesai (test lulus) · ⚠️ s
 - **Restart Hermes butuh izin** — `hermes serve` cache config per proses.
 - **Inference base URL Nous** (`nous_auth.json → inference_base_url`) fronting **OpenRouter** (model list isinya OpenRouter-style: `openai/gpt-5.x`, `tencent/hy3:free`, dll). Itu normal.
 - **hermes-loop / the-fool repo = ACUAN SAJA, JANGAN GABUNG.** Cuma dipelajari filosofi (intelligence from workflow, session=source-of-truth, SOUL/USER/MEMORY terstruktur). Memory-proxy tetep repo sendiri; terapkan IDE yang relevan & sesuai fakta, bukan fork/copy struktur repo itu. (Keputusan user 2026-07-11.)
-- **Ambil POLA, gak ambil SKILL.** Dari the-fool/hermes-loop diambil: memory taxonomy (tiers), loop types, compressor/ranker, plugin format (plugin.yaml + hooks), skill structure (SKILL.md). TIDAK diambil: isi skill spesifik (core_evo, project_manager, growth_manager), brain/learnings (fakta user), zka-os RFC. Repo memory-proxy = kerangka kosong generik, isinya (persona/facts) user isi sendiri. (Keputusan user 2026-07-11.)
+- **Ambil POLA, gak ambil SKILL.** Dari the-fool/hermes-loop diambil: memory taxonomy (tiers), loop types, compressor/ranker, plugin format (plugin.yaml + hooks), skill structure (SKILL.md). TIDAK diambil: isi skill spesifik (core_evo, project_manager, growth_manager), brain/learnings (fakta user), the agent-os RFC. Repo memory-proxy = kerangka kosong generik, isinya (persona/facts) user isi sendiri. (Keputusan user 2026-07-11.)
 - **DB sekarang GAK kritis — jangan ributin.** Masih baru, fakta sedikit. Prioritas = build arsitektur masa depan (multi-tier, loop, consolidation), bukan backup/hardening DB sekarang. Backup cron DITUNDA. (Keputusan user 2026-07-11.)
 - **Struktur target = 3 repo terpisah** (bukan subfolder 1 repo): `memory-proxy/` (engine 8899), `memory-proxy-plugin/` (plugin Hermes inject memory), `memory-proxy-skill/` (skill behavior generik). Orang clone masing-masing → tinggal pasang. (Keputusan user 2026-07-11.)
 
@@ -154,7 +154,7 @@ Legend: ⬜ belum · 🔄 lagi dikerjain · ✅ selesai (test lulus) · ⚠️ s
 - **2026-07-11:** Phase 1.1–1.5 + E2E → 31 passed.
 - **2026-07-11:** #2 verify identitas dari source → D-015.
 - **2026-07-11:** Phase 2 (Anthropic + Ollama sim + factory) → 40 passed.
-- **2026-07-11:** Phase 3 (auth/rate/backup/ingest/README) → 48 passed. Push ke GitHub `zeroknowledge0x/memory-proxy` (private).
+- **2026-07-11:** Phase 3 (auth/rate/backup/ingest/README) → 48 passed. Push ke GitHub `the maintainer/memory-proxy` (private).
 - **2026-07-11:** Deploy nyata: CredentialProvider (OAuth), user_id hash fix (ERR-004), proxy `/v1/models` upstream (ERR-008), `custom_providers` config (ERR-007). **54 passed**. Memory Proxy muncul di picker + chat jalan (screenshot user).
 - **2026-07-11:** Live test: fakta otomatis masuk DB (ERR-011 fix: extractor buang `response_format` Nous-tolak + `ensure_user` FK + await result). Hermes internal dimigrasi ke Proxy DB, file di-rename `m1.md`/`m2.md` → terbukti proxy baca dari DB. Token auto-refresh (D-020). Push `e32e77d`.
 - **2026-07-11:** Arah masa depan: acuan `the-fool` (RFC-0002 memory taxonomy) + `hermes-loop`. Keputusan: ambil POLA bukan SKILL, 3 repo terpisah, DB sekarang gak kritis. Lihat "🚀 Future Plan" di bawah.
@@ -220,11 +220,11 @@ Masih open (butuh keputusan user):
 - Restart service (SOUL: butuh izin eksplisit).
 - Cron consolidate frekuensi (60m → 6h?).
 - Test suite polusi multi-user UUID (TEST_DATABASE_URL harus DB terpisah).
-- User-id split: banyak facts di default UUID, consolidate di telegram:5398668166.
+- User-id split: banyak facts di default UUID, consolidate di telegram:<your-user-id>.
 
 ## 2026-07-13 — D-026 single-user brain merge
 
-- Gabung semua memories/sessions ke UUID `9c5202b3-…` (telegram:5398668166).
+- Gabung semua memories/sessions ke UUID kanonik (`<canonical-user-uuid>`, hash stabil dari `telegram:<your-user-id>`).
 - `SINGLE_USER_MODE=true` + DEFAULT_USER_ID kanonik di .env.
 - active_on_others=0; API user beda → facts sama.
 

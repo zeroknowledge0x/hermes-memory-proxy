@@ -10,7 +10,7 @@ Progress log: `PROGRESS.md` section “Mini-training quality pass”.
 3. **Plugin tidak query-aware** — retrieval selalu probe fixed `"important user facts"`.
 4. **Stream path** — extraction/conversation log tidak dapat `assistant_msg`.
 5. **Importance ranking idle** — kolom `importance` diisi reflect, tidak dipakai di `ORDER BY`.
-6. **User-id split** — facts terbelah default UUID vs `telegram:5398668166`.
+6. **User-id split** — facts terbelah default UUID vs `telegram:<your-user-id>`.
 
 ## Fix di kode
 
@@ -37,7 +37,7 @@ Progress log: `PROGRESS.md` section “Mini-training quality pass”.
 
 ## Follow-up: D-026 single-user merge (same day)
 
-- **Masalah #6 fixed:** user-id split digabung ke UUID kanonik `9c5202b3-…` (`telegram:5398668166`).
+- **Masalah #6 fixed:** user-id split digabung ke UUID kanonik (`<canonical-user-uuid>`, hash stabil dari `telegram:<your-user-id>`).
 - `SINGLE_USER_MODE=true` default — gak belah otak lagi selama 1 user.
 - Script: `scripts/merge_to_single_user.py`.
 - Active memories setelah merge+dedupe: **155** di 1 user; others **0**.

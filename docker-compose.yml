@@ -1,6 +1,12 @@
-# docker-compose.yml — Postgres + pgvector for Hermes Memory Proxy
-# Usage: docker compose up -d db
-# Then set DATABASE_URL=postgresql://proxy:proxy@localhost:5432/memory_proxy
+# docker-compose.yml — Hermes Memory Proxy (full stack: db + proxy)
+#
+# Quick start:
+#   cp .env.example .env    # set UPSTREAM_BASE_URL + UPSTREAM_API_KEY
+#   docker compose up -d    # starts Postgres+pgvector AND the proxy on :8899
+#   curl http://127.0.0.1:8899/health
+#
+# DB only (run the engine on the host instead):
+#   docker compose up -d db
 
 services:
   db:
@@ -14,11 +20,25 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro   # auto-apply schema on first boot
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U proxy"]
       interval: 5s
       timeout: 3s
       retries: 5
+
+  proxy:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Override DATABASE_URL to reach the db service inside the compose network.
+      DATABASE_URL: postgresql://proxy:proxy@db:5432/memory_proxy
+    ports:
+      - "8899:8899"
 
 volumes:
   pgdata:

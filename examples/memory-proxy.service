@@ -1,0 +1,22 @@
+# Example systemd unit — copy and enable:
+#   sudo cp memory-proxy.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now memory-proxy
+
+[Unit]
+Description=Hermes Memory Proxy
+After=postgresql.service docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/hermes-memory-proxy
+EnvironmentFile=/opt/hermes-memory-proxy/.env
+ExecStart=/opt/hermes-memory-proxy/.venv/bin/uvicorn \
+  memory_proxy.api.main:build_default_app --factory \
+  --host 127.0.0.1 --port 8899
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -143,7 +143,7 @@
 
 ## D-022 — Acuan the-fool / hermes-loop: ambil POLA, 3 repo terpisah
 
-- **Keputusan:** Memory-proxy masa depan diarahkan dari `the-fool` (RFC-0002 Memory Engine: taxonomy Working/Short/Conversation/Semantic/Episodic/Reflection, Ranker, Compressor, Event Log) + `hermes-loop` (plugin.yaml + hooks pre_llm_call/on_session_start). **Ambil POLA, gak ambil SKILL** — tidak copy isi skill (core_evo, project_manager, growth_manager), brain/learnings, atau zka-os RFC. Struktur target = **3 repo terpisah**: `memory-proxy/` (engine), `memory-proxy-plugin/` (inject memory ke Hermes), `memory-proxy-skill/` (behavior generik). Orang clone masing-masing → tinggal pasang.
+- **Keputusan:** Memory-proxy masa depan diarahkan dari `the-fool` (RFC-0002 Memory Engine: taxonomy Working/Short/Conversation/Semantic/Episodic/Reflection, Ranker, Compressor, Event Log) + `hermes-loop` (plugin.yaml + hooks pre_llm_call/on_session_start). **Ambil POLA, gak ambil SKILL** — tidak copy isi skill (core_evo, project_manager, growth_manager), brain/learnings, atau the agent-os RFC. Struktur target = **3 repo terpisah**: `memory-proxy/` (engine), `memory-proxy-plugin/` (inject memory ke Hermes), `memory-proxy-skill/` (behavior generik). Orang clone masing-masing → tinggal pasang.
 - **Bukti:** `the-fool` jauh lebih lengkap dari `hermes-loop` (vault hidup: learnings ratusan, RFC memory/knowledge/context/router/learning, loop_types 4 kategori). RFC-0002 memory taxonomy = reference arsitektur valid. `hermes-loop` plugin format (plugin.yaml + hooks) = reference plugin Hermes yang benar.
 - **Konsekuensi:** repo memory-proxy = kerangka KOSONG generik; persona/facts diisi user sendiri (template SOUL/USER kosong). DB sekarang gak kritis → prioritas build arsitektur, bukan backup. Backup cron DITUNDA. Planning-loop agen tetap di Hermes, proxy cuma memory + behavior inject.
 
@@ -153,12 +153,12 @@
 - **Bukti (dari the-fool):** 30+ cron jobs (`loop_evolve`, `loop_intake`, `loop_daily_digest`, dll) jalan di schedule (tiap jam / */5). Tiap job = **flat prompt** ("refleksi diri"), BUKAN panggil `brain_loop(...)` (itu HTTP 400 — pitfall mereka). `hermes cron run <id>` buat verifikasi. Learning: "saat fix config fleet-wide, verifikasi SEMUA job, bukan cuma contoh".
 - **Bukti (dari hermes-loop core skill):** `core` = satu-satunya decision-maker; skill lain eksekutor pasif (gak call skill lain, gak write session). Workflow: Load Session → Discover Goal → Plan → Select Skill → Execute → Validate → Review → Loop Control → Update Session → Escalate → Respond. max_iterations default 5.
 - **Arsitektur (RFC-0001/0002/0006 the-fool):** LLM = syscall (bukan product). Memory Engine = tiers (Working/Short/Conversation/Long/Semantic/Episodic/Reflection) + Ranker + Compressor + Event Log. Learning Engine = Experience → Reflection → Self-Critique → Score → Propose → Gate → Apply. **Auto-merge opt-in, gated.**
-- **Konsekuensi untuk memory-proxy:** (a) plugin SUDAH inject memory+planning (turn-based). (b) TAMBAH cron jobs Hermes yg panggil proxy endpoint `/v1/consolidate` (rangkum memory) + `/v1/reflect` (review fakta) — flat prompt, verifikasi tiap job. (c) Gak copy skill isi (core_evo/project_manager); cuma pola. (d) Cron job butuh izin eksplisit user (aturan), dan jgn auto-resurrect R&D loop tanpa izin (lesson zeroknowledge0x (zk): income > R&D loops).
-- **Bukti (verify):** consolidate beneran LLM-rangkum 6 fakta → summary profile zeroknowledge0x (zk) (disimpan tier=long, ke-catet di events+file). reflect score 7 fakta. 54 tests ijo.
+- **Konsekuensi untuk memory-proxy:** (a) plugin SUDAH inject memory+planning (turn-based). (b) TAMBAH cron jobs Hermes yg panggil proxy endpoint `/v1/consolidate` (rangkum memory) + `/v1/reflect` (review fakta) — flat prompt, verifikasi tiap job. (c) Gak copy skill isi (core_evo/project_manager); cuma pola. (d) Cron job butuh izin eksplisit user (aturan), dan jgn auto-resurrect R&D loop tanpa izin (lesson the maintainer: income > R&D loops).
+- **Bukti (verify):** consolidate beneran LLM-rangkum 6 fakta → summary profile the maintainer (disimpan tier=long, ke-catet di events+file). reflect score 7 fakta. 54 tests ijo.
 
 ## D-024 — Backup DB off-VPS (GitHub private, bukan lokal doang)
 
-- **Keputusan:** backup harian `pg_dump` → (1) lokal `/root/memory-proxy/backup/` (retention 14d, udah test restore sukses: 56 memories+4 events balik), DAN (2) **force-push ke repo private `memory-proxy-backup` branch `latest`** (1 file `latest.dump`, gak numpuk history). Kalau VPS ilang total → clone branch `latest` → restore. Repo private = data zeroknowledge0x (zk) gak bocor.
+- **Keputusan:** backup harian `pg_dump` → (1) lokal `/root/memory-proxy/backup/` (retention 14d, udah test restore sukses: 56 memories+4 events balik), DAN (2) **force-push ke repo private `memory-proxy-backup` branch `latest`** (1 file `latest.dump`, gak numpuk history). Kalau VPS ilang total → clone branch `latest` → restore. Repo private = data the maintainer gak bocor.
 - **Bukti:** `scripts/backup_to_github.sh` jalan (dump 96694 bytes → push branch latest, verified via gh API size). Cron `loop_db_backup_gh` (daily 4AM) verified succeeded. `rclone` B2/S3 diskip (gak terinstall) — GitHub jadi off-VPS carrier.
 - **Konsekuensi:** "DB gak ilang" aman walau VPS mati. Catatan: dump gak含 API key/credential (cuma memory+events). Main repo `memory-proxy` TETAP murni kode (backup di repo terpisah, sesuai aturan "GitHub = source/config, BUKAN user memory" — tapi kasus ini user explicitly izin GitHub buat backup DB off-VPS).
 
@@ -204,12 +204,12 @@ Lihat juga: `docs/AUDIT-2026-07-13-mini-training.md`.
 ## D-026 — Single-user brain (anti split user_id) — 2026-07-13
 
 ### Masalah
-Extract/retrieve bisa masuk **UUID beda** karena `_resolve_user_id` hash field `user` (telegram vs empty vs test). Akibat: 2+ “kantong otak” (default UUID ~141 facts vs `telegram:5398668166` ~9 + consolidated).
+Extract/retrieve bisa masuk **UUID beda** karena `_resolve_user_id` hash field `user` (telegram vs empty vs test). Akibat: 2+ “kantong otak” (default UUID ~141 facts vs `telegram:<your-user-id>` ~9 + consolidated).
 
 ### Keputusan
 Deployment **single-user** (default):
 1. `SINGLE_USER_MODE=true` (default) → semua request map ke `DEFAULT_USER_ID` (abaikan payload `user`).
-2. `DEFAULT_USER_ID` = hash stabil `telegram:5398668166` = `9c5202b3-0c9d-bd91-b8d0-2e24d2d261d3`.
+2. `DEFAULT_USER_ID` = hash stabil `telegram:<your-user-id>` = `<canonical-user-uuid>`.
 3. One-shot merge DB: semua `memories` / `sessions` / `events` → UUID kanonik; exact-dup expire.
 4. Multi-tenant: set `SINGLE_USER_MODE=false` (hash opaque user lagi).
 

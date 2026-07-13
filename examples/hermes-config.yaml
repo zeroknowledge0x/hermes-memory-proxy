@@ -1,0 +1,19 @@
+# Example: ~/.hermes/config.yaml — point Hermes at the Memory Proxy
+#
+# Works for ANY model your upstream provider supports. Swap `default` to whatever
+# the upstream offers; the proxy forwards unchanged.
+
+model:
+  default: gpt-4o-mini          # or claude-3-5-sonnet, llama-3.1-70b, etc.
+  provider: custom:memory-proxy
+
+custom_providers:
+  - name: Memory Proxy
+    provider_key: memory-proxy
+    base_url: http://127.0.0.1:8899/v1
+    api_mode: openai_chat
+    model: ''                   # proxy injects the upstream model from the request
+
+plugins:
+  enabled:
+    - memory-proxy              # enables automatic memory injection
