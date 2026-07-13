@@ -19,9 +19,17 @@ pip install -e ".[dev]"
 
 ### 2. Database
 ```bash
-docker compose up -d db        # OR: native Postgres 16 + pgvector 0.6+
-psql "$DATABASE_URL" -f src/memory_proxy/storage/migrations/001_init.sql
-psql "$DATABASE_URL" -f src/memory_proxy/storage/migrations/002_loops.sql
+# One-shot bootstrap: applies ALL migrations in order + grants sequence privileges
+# (so /v1/consolidate and /v1/reflect don't fail with "permission denied for sequence").
+DATABASE_URL=postgresql://proxy:proxy@127.0.0.1:5432/memory_proxy \
+  bash scripts/bootstrap_db.sh
+
+# Fresh DB — also create the role + grant (needs superuser):
+# DB_ADMIN_URL=postgresql://postgres@127.0.0.1:5432/memory_proxy DB_USER=proxy DB_PASSWORD=proxy \
+#   bash scripts/bootstrap_db.sh
+
+# OR use the full Docker stack (migrations auto-apply on first boot):
+# docker compose up -d
 ```
 
 ### 3. Configure
@@ -44,11 +52,14 @@ model:
   provider: custom:memory-proxy
 custom_providers:
   - name: Memory Proxy
-    provider_key: memory-proxy
     base_url: http://127.0.0.1:8899/v1
     api_mode: openai_chat
+    # api_key is required by the schema even when the proxy uses NOUS_AUTH_FILE;
+    # set it to an empty string (the proxy ignores it for local loopback):
+    api_key: ""
     model: ''
 ```
+
 
 ### 6. Plugin + Skill
 ```bash
