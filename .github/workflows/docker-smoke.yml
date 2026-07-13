@@ -9,8 +9,6 @@ on:
 jobs:
   docker-smoke:
     runs-on: ubuntu-latest
-    services:
-      # No external dep — we build the full stack from docker-compose.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
