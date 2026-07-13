@@ -52,6 +52,7 @@ class Orchestrator:
         budgeter: TokenBudgeter | None = None,
         default_user_id: str = "00000000-0000-0000-0000-000000000001",
         top_k: int = 5,
+        single_user_mode: bool = True,
     ):
         self._provider = provider
         self._identity = identity
@@ -63,14 +64,20 @@ class Orchestrator:
         self._assembler = ContextAssembler()
         self._default_user_id = default_user_id
         self._top_k = top_k
+        self._single_user_mode = single_user_mode
 
     def _resolve_user_id(self, payload: dict[str, Any]) -> str:
-        # D-013: single-user hardcode by default. If the client sends a
-        # `user` field (Hermes may pass an opaque id like "telegram:123"),
-        # map it deterministically to a UUID so it's safe for the DB and
-        # stable per user. Never trust the raw value as a UUID.
+        """Map request → DB user UUID.
+
+        D-026 single-user mode (default ON): always return default_user_id so
+        extract/retrieve/consolidate share ONE brain. Multi-user path only
+        when single_user_mode=False: hash opaque `user` to a stable UUID.
+        """
         import uuid as _uuid
         import hashlib as _hash
+
+        if self._single_user_mode:
+            return str(self._default_user_id)
 
         raw = payload.get("user")
         if not raw:

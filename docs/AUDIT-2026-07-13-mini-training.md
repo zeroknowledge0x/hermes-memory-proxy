@@ -34,3 +34,10 @@ Progress log: `PROGRESS.md` section “Mini-training quality pass”.
 - [ ] Merge facts default-UUID → telegram user (butuh izin)
 - [ ] Enforce `TEST_DATABASE_URL` terpisah dari prod
 - [ ] Gateway reload agar plugin cache full-new (opsional)
+
+## Follow-up: D-026 single-user merge (same day)
+
+- **Masalah #6 fixed:** user-id split digabung ke UUID kanonik `9c5202b3-…` (`telegram:5398668166`).
+- `SINGLE_USER_MODE=true` default — gak belah otak lagi selama 1 user.
+- Script: `scripts/merge_to_single_user.py`.
+- Active memories setelah merge+dedupe: **155** di 1 user; others **0**.

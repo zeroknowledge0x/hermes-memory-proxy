@@ -256,6 +256,7 @@ def build_default_app() -> FastAPI:
             writer=writer,
             budgeter=TokenBudgeter(settings.context_window, settings.reserved_pct),
             default_user_id=settings.default_user_id,
+            single_user_mode=settings.single_user_mode,
         )
         yield
         # --- shutdown ---
