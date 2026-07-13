@@ -1,0 +1,26 @@
+# docker-compose.ci.yml — CI-only override: adds a mock LLM upstream so the
+# smoke test runs WITHOUT a real provider key. The proxy is pointed at the
+# mock via UPSTREAM_BASE_URL below. Production docker-compose.yml does NOT
+# include this mock.
+#
+# Usage in CI:
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+#   (mock listens on :9999 inside the compose network as hostname `mock`)
+
+services:
+  mock:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./scripts:/app/scripts:ro
+    command: ["python", "/app/scripts/ci_mock_upstream.py", "9999"]
+    expose:
+      - "9999"
+
+  proxy:
+    environment:
+      UPSTREAM_BASE_URL: http://mock:9999/v1
+    depends_on:
+      - mock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

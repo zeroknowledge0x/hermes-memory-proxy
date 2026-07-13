@@ -16,7 +16,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Create .env for CI (point proxy at the mock upstream below)
+      - name: Create .env for CI
         run: |
           cat > .env <<'EOF'
           DATABASE_URL=postgresql://proxy:proxy@db:5432/memory_proxy
@@ -33,22 +33,10 @@ jobs:
           EOF
 
       - name: Build images
-        run: docker compose build
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml build
 
-      - name: Start stack (db + proxy)
-        run: docker compose up -d db proxy
-
-      - name: Start mock upstream (OpenAI-compatible fake, no real key needed)
-        run: |
-          python3 scripts/ci_mock_upstream.py 9999 &
-          echo $! > /tmp/mock.pid
-          for i in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:9999/v1/chat/completions -X POST \
-               -H 'content-type: application/json' -d '{"model":"x","messages":[]}' >/dev/null 2>&1; then
-              echo "mock upstream ready after ${i}s"; break
-            fi
-            sleep 1
-          done
+      - name: Start stack (db + proxy + mock upstream)
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
 
       - name: Wait for proxy health
         run: |
@@ -58,7 +46,7 @@ jobs:
             fi
             sleep 2
           done
-          curl -fsS http://127.0.0.1:8899/health || (docker compose logs; exit 1)
+          curl -fsS http://127.0.0.1:8899/health || (docker compose -f docker-compose.yml -f docker-compose.ci.yml logs; exit 1)
 
       - name: Smoke test — memory write + recall through the FULL pipeline
         run: |
@@ -72,11 +60,9 @@ jobs:
           # 3) Confirm the /v1/memory endpoint returns the stored fact (proves recall)
           MEM=$(curl -fsS 'http://127.0.0.1:8899/v1/memory?limit=5&q=name')
           echo "memory: $MEM"
-          echo "$MEM" | grep -qi "CIbot" || (echo "MEMORY NOT RECALLED"; docker compose logs proxy; exit 1)
+          echo "$MEM" | grep -qi "CIbot" || (echo "MEMORY NOT RECALLED"; docker compose -f docker-compose.yml -f docker-compose.ci.yml logs proxy; exit 1)
           echo "SMOKE OK: fact stored + recalled via full pipeline"
 
       - name: Tear down
         if: always()
-        run: |
-          [ -f /tmp/mock.pid ] && kill "$(cat /tmp/mock.pid)" 2>/dev/null || true
-          docker compose down -v
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
